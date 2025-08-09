@@ -84,6 +84,9 @@ I hope you enjoy your Neovim journey,
 P.S. You can delete this when you're done too. It's your config now! :)
 --]]
 
+vim.env.CC = 'clang'
+vim.env.CXX = 'clang++'
+
 -- Set <space> as the leader key
 -- See `:help mapleader`
 --  NOTE: Must happen before plugins are loaded (otherwise wrong leader will be used)
@@ -91,7 +94,7 @@ vim.g.mapleader = ' '
 vim.g.maplocalleader = ' '
 
 -- Set to true if you have a Nerd Font installed and selected in the terminal
-vim.g.have_nerd_font = false
+vim.g.have_nerd_font = true
 
 -- [[ Setting options ]]
 -- See `:help vim.o`
@@ -102,7 +105,7 @@ vim.g.have_nerd_font = false
 vim.o.number = true
 -- You can also add relative line numbers, to help with jumping.
 --  Experiment for yourself to see if you like it!
--- vim.o.relativenumber = true
+vim.o.relativenumber = true
 
 -- Enable mouse mode, can be useful for resizing splits for example!
 vim.o.mouse = 'a'
@@ -189,6 +192,38 @@ vim.keymap.set('t', '<Esc><Esc>', '<C-\\><C-n>', { desc = 'Exit terminal mode' }
 -- vim.keymap.set('n', '<right>', '<cmd>echo "Use l to move!!"<CR>')
 -- vim.keymap.set('n', '<up>', '<cmd>echo "Use k to move!!"<CR>')
 -- vim.keymap.set('n', '<down>', '<cmd>echo "Use j to move!!"<CR>')
+--
+--
+-- CUSTOM:
+
+local hover_win = nil
+
+function toggle_hover()
+  -- If hover window  is open and valid, close it
+  if hover_win and vim.api.nvim_win_is_valid(hover_win) then
+    vim.api.nvim_win_close(hover_win, true)
+    hover_win = nil
+  else
+    -- Otherwise, open hover window and save id
+    vim.lsp.buf.hover()
+    vim.defer_fn(function()
+      local wins = vim.api.nvim_tabpage_list_wins(0)
+      for _, win in ipairs(wins) do
+        local config = vim.api.nvim_win_get_config(win)
+        if config.relative ~= '' then
+          hover_win = win
+          vim.api.nvim_set_current_win(hover_win)
+          break
+        end
+      end
+    end, 50)
+  end
+end
+
+vim.keymap.set('n', '<leader>i', toggle_hover, { noremap = true, silent = true })
+--vim.api.nvim_set_keymap('n', '<leader>i', '<cmd>lua vim.lsp.buf.hover()<CR>', { noremap = true, silent = true })
+--
+-- /CUSTOM
 
 -- Keybinds to make split navigation easier.
 --  Use CTRL+<hjkl> to switch between windows
@@ -672,9 +707,15 @@ require('lazy').setup({
       --        For example, to see the options for `lua_ls`, you could go to: https://luals.github.io/wiki/settings/
       local servers = {
         -- clangd = {},
-        -- gopls = {},
-        -- pyright = {},
-        -- rust_analyzer = {},
+        gopls = {},
+        pyright = {
+          settings = {
+            python = {
+              pythonPath = '~/PythonEnv/data_env/Scripts/python.exe',
+            },
+          },
+        },
+        rust_analyzer = {},
         -- ... etc. See `:help lspconfig-all` for a list of all the pre-configured LSPs
         --
         -- Some languages (like typescript) have entire language plugins that can be useful:
@@ -799,12 +840,12 @@ require('lazy').setup({
           -- `friendly-snippets` contains a variety of premade snippets.
           --    See the README about individual language/framework/plugin snippets:
           --    https://github.com/rafamadriz/friendly-snippets
-          -- {
-          --   'rafamadriz/friendly-snippets',
-          --   config = function()
-          --     require('luasnip.loaders.from_vscode').lazy_load()
-          --   end,
-          -- },
+          {
+            'rafamadriz/friendly-snippets',
+            config = function()
+              require('luasnip.loaders.from_vscode').lazy_load()
+            end,
+          },
         },
         opts = {},
       },
@@ -834,6 +875,8 @@ require('lazy').setup({
         -- <c-e>: Hide menu
         -- <c-k>: Toggle signature help
         --
+        ['<C-i>'] = { 'show', 'show_documentation', 'hide_documentation' },
+
         -- See :h blink-cmp-config-keymap for defining your own keymap
         preset = 'default',
 
@@ -942,8 +985,10 @@ require('lazy').setup({
     'nvim-treesitter/nvim-treesitter',
     build = ':TSUpdate',
     main = 'nvim-treesitter.configs', -- Sets main module to use for opts
+
     -- [[ Configure Treesitter ]] See `:help nvim-treesitter`
     opts = {
+      compilers = { 'clang', 'gcc' },
       ensure_installed = { 'bash', 'c', 'diff', 'html', 'lua', 'luadoc', 'markdown', 'markdown_inline', 'query', 'vim', 'vimdoc' },
       -- Autoinstall languages that are not installed
       auto_install = true,
